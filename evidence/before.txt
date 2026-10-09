@@ -1,0 +1,14 @@
+LOGIN sunset@propertyflow.com 200
+sunset@propertyflow.com prop-001 200 {"property_id":"prop-001","total_revenue":1000.0,"currency":"USD","reservations_count":3}
+sunset@propertyflow.com prop-002 200 {"property_id":"prop-002","total_revenue":4975.5,"currency":"USD","reservations_count":4}
+sunset@propertyflow.com prop-004 200 {"property_id":"prop-004","total_revenue":1776.5,"currency":"USD","reservations_count":4}
+LOGIN ocean@propertyflow.com 200
+ocean@propertyflow.com prop-001 200 {"property_id":"prop-001","total_revenue":1000.0,"currency":"USD","reservations_count":3}
+ocean@propertyflow.com prop-002 200 {"property_id":"prop-002","total_revenue":4975.5,"currency":"USD","reservations_count":4}
+ocean@propertyflow.com prop-004 200 {"property_id":"prop-004","total_revenue":1776.5,"currency":"USD","reservations_count":4}
+LOGIN sunset@propertyflow.com 200
+sunset@propertyflow.com prop-001 200 {"property_id":"prop-001","total_revenue":1000.0,"currency":"USD","reservations_count":3}
+sunset@propertyflow.com prop-002 200 {"property_id":"prop-002","total_revenue":4975.5,"currency":"USD","reservations_count":4}
+sunset@propertyflow.com prop-004 200 {"property_id":"prop-004","total_revenue":1776.5,"currency":"USD","reservations_count":4}
+UNAUTHENTICATED MOCK TOKEN 200 {"property_id":"prop-001","total_revenue":1000.0,"currency":"USD","reservations_count":3}
+WRONG PASSWORD 200 {"token_issued": true}

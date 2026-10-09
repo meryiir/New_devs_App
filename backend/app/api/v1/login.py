@@ -102,16 +102,15 @@ async def login(request: LoginRequest):
         # For other users, check if they exist in the database
         # This is a simplified auth - in production you'd check password hashes
         try:
-            # Check if user exists in Supabase auth
-            user_result = supabase.auth.admin.list_users()
-            users = user_result if hasattr(user_result, '__iter__') else []
-            
-            user = None
-            for u in users:
-                if u.email and u.email.lower() == email:
-                    user = u
-                    break
-                    
+            # Authenticate credentials with the configured provider before issuing a token.
+            try:
+                auth_response = supabase.auth.sign_in_with_password({
+                    "email": email, "password": password,
+                })
+                user = auth_response.user
+            except Exception:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+
             if not user:
                 logger.warning(f"[LOGIN] User not found: {email}")
                 raise HTTPException(
@@ -144,7 +143,11 @@ async def login(request: LoginRequest):
             )
             
             # Resolve tenant ID
-            tenant_id = await TenantResolver.resolve_tenant_id(user_id=user.id, user_email=user.email)
+            tenant_id = TenantResolver.resolve_tenant_from_user({
+                "app_metadata": getattr(user, "app_metadata", {}),
+            })
+            if not tenant_id:
+                raise HTTPException(status_code=403, detail="Tenant required")
             
             # Create JWT token
             user_data = {

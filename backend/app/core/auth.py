@@ -80,24 +80,6 @@ async def authenticate_request(
     # Create cache key from token hash (more secure than storing full token)
     token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
 
-    # Check cache first
-    if token_hash in auth_cache:
-        cached_data = auth_cache[token_hash]
-        if datetime.now().timestamp() - cached_data["timestamp"] < CACHE_DURATION:
-            cached_user = cached_data["user"]
-            # If not, force a refresh to get proper tenant isolation
-            if not cached_user.tenant_id:
-                logger.warning(f"AUTH: Cached auth for {cached_user.email} missing tenant_id - forcing refresh")
-                del auth_cache[token_hash]
-            else:
-                logger.info(
-                    f"AUTH: Using cached authentication for token {token_hash} (tenant: {cached_user.tenant_id}) for user: {cached_user.email}"
-                )
-                return cached_user
-        else:
-            # Remove expired cache entry
-            del auth_cache[token_hash]
-
     logger.info(f"AUTH: Starting authentication - Token hash: {token_hash}, Token preview: {token[:20]}...")
 
     try:
@@ -111,14 +93,16 @@ async def authenticate_request(
                     token, 
                     settings.secret_key, 
                     algorithms=["HS256"],
-                    audience="authenticated"  # Accept tokens with aud: "authenticated"
+                    audience="authenticated",
+                    options={"require_exp": True, "require_aud": True},
                 )
                 logger.info(f"AUTH: Successfully decoded custom JWT token for {payload.get('email')}")
                 
                 # Create a mock user object from JWT payload
                 class MockUser:
                     def __init__(self, payload):
-                        self.id = payload.get('id')
+                        self.id = payload.get('id') or payload.get('sub')
+                        self.tenant_id = payload.get('tenant_id')
                         self.email = payload.get('email')
                         self.app_metadata = payload.get('app_metadata', {})
                         self.user_metadata = payload.get('user_metadata', {})
@@ -149,6 +133,24 @@ async def authenticate_request(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
             )
+
+        # Use cached permissions only after signature and expiry verification.
+        if token_hash in auth_cache:
+            cached_data = auth_cache[token_hash]
+            if datetime.now().timestamp() - cached_data["timestamp"] < CACHE_DURATION:
+                cached_user = cached_data["user"]
+                # If not, force a refresh to get proper tenant isolation
+                if not cached_user.tenant_id:
+                    logger.warning(f"AUTH: Cached auth for {cached_user.email} missing tenant_id - forcing refresh")
+                    del auth_cache[token_hash]
+                else:
+                    logger.info(
+                        f"AUTH: Using cached authentication for token {token_hash} (tenant: {cached_user.tenant_id}) for user: {cached_user.email}"
+                    )
+                    return cached_user
+            else:
+                # Remove expired cache entry
+                del auth_cache[token_hash]
 
         # Get user permissions.
         logger.debug(f"AUTH: Fetching permissions for user {user.id}")
@@ -253,7 +255,12 @@ async def authenticate_request(
         logger.info(f"User: {user.email} (ID: {user.id})")
 
         # Use TenantResolver for comprehensive tenant resolution
-        tenant_id = await TenantResolver.resolve_tenant_id(token=token, user_id=user.id, user_email=user.email)
+        tenant_id = TenantResolver.resolve_tenant_from_user({
+            "tenant_id": getattr(user, "tenant_id", None),
+            "app_metadata": getattr(user, "app_metadata", {}),
+        })
+        if not tenant_id:
+            raise HTTPException(status_code=403, detail="Tenant required")
 
         # If we found a tenant_id and it's not in the user's metadata, update it for next time
         current_tenant_in_metadata = None
@@ -510,7 +517,12 @@ async def verify_token_ws(token: str) -> Optional[AuthenticatedUser]:
 
         # Use the comprehensive tenant resolver (same as regular auth)
         logger.info(f"WS_AUTH: Resolving tenant for user {user.email}")
-        tenant_id = await TenantResolver.resolve_tenant_id(token=token, user_id=user.id, user_email=user.email)
+        tenant_id = TenantResolver.resolve_tenant_from_user({
+            "tenant_id": getattr(user, "tenant_id", None),
+            "app_metadata": getattr(user, "app_metadata", {}),
+        })
+        if not tenant_id:
+            raise HTTPException(status_code=403, detail="Tenant required")
 
         auth_user = AuthenticatedUser(
             id=user.id,

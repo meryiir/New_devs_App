@@ -1,0 +1,15 @@
+ tenant_id |    id    |     timezone     | march_total | reservations 
+-----------+----------+------------------+-------------+--------------
+ tenant-a  | prop-001 | Europe/Paris     |    2250.000 |            4
+ tenant-a  | prop-002 | Europe/Paris     |    4975.500 |            4
+ tenant-a  | prop-003 | Europe/Paris     |    6100.500 |            2
+ tenant-b  | prop-001 | America/New_York |           0 |            0
+ tenant-b  | prop-004 | America/New_York |    1776.500 |            4
+ tenant-b  | prop-005 | America/New_York |    3256.000 |            3
+(6 rows)
+
+    id    |     check_in_date      |   paris_check_in    | total_amount | currency 
+----------+------------------------+---------------------+--------------+----------
+ res-tz-1 | 2024-02-29 23:30:00+00 | 2024-03-01 00:30:00 |     1250.000 | USD
+(1 row)
+
